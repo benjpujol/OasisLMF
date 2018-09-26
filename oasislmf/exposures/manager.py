@@ -161,7 +161,7 @@ class OasisExposuresManagerInterface(Interface):  # pragma: no cover
 
 class OasisExposuresManager(implements(OasisExposuresManagerInterface)):
 
-    def __init__(self, oasis_models=None):
+    def __init__(self, oasis_models=None, do_timestamp = True):
         self.logger = logging.getLogger()
 
         self.logger.debug('Exposures manager {} initialising'.format(self))
@@ -170,6 +170,7 @@ class OasisExposuresManager(implements(OasisExposuresManagerInterface)):
         self._models = {}
 
         self.add_models(oasis_models)
+        self.do_timestamp = do_timestamp
 
         self.logger.debug('Exposures manager {} finished initialising'.format(self))
 
@@ -653,7 +654,8 @@ class OasisExposuresManager(implements(OasisExposuresManagerInterface)):
 
         return oasis_model
 
-    def start_files_pipeline(self, oasis_model=None, oasis_files_path=None, source_exposures_file_path=None, logger=None):
+    def start_files_pipeline(
+        self, oasis_model=None, oasis_files_path=None, source_exposures_file_path=None, logger=None):
         """
         Starts the oasis files pipeline for the given Oasis model object,
         which is the generation of the Oasis items, coverages and GUL summary
@@ -691,13 +693,24 @@ class OasisExposuresManager(implements(OasisExposuresManagerInterface)):
             raise OasisException("Source exposures file path {} does not exist on the filesysem.".format(source_exposures_file_path))
 
         utcnow = get_utctimestamp(fmt='%Y%m%d%H%M%S')
+        if self.do_timestamp:
+            canonical_exposures_file_path=os.path.join(oasis_files_path, 'canexp-{}.csv'.format(utcnow))
+            model_exposures_file_path=os.path.join(oasis_files_path, 'modexp-{}.csv'.format(utcnow))
+            keys_file_path=os.path.join(oasis_files_path, 'oasiskeys-{}.csv'.format(utcnow))
+            keys_errors_file_path=os.path.join(oasis_files_path, 'oasiskeys-errors-{}.csv'.format(utcnow))
+        else:
+            canonical_exposures_file_path=os.path.join(oasis_files_path, 'canexp.csv')
+            model_exposures_file_path=os.path.join(oasis_files_path, 'modexp.csv')
+            keys_file_path=os.path.join(oasis_files_path, 'oasiskeys.csv')
+            keys_errors_file_path=os.path.join(oasis_files_path, 'oasiskeys-errors.csv')
+
         kwargs = self._process_default_kwargs(
             oasis_model=oasis_model,
-            source_exposures_file_path=os.path.join(oasis_files_path, os.path.basename(source_exposures_file_path)),
-            canonical_exposures_file_path=os.path.join(oasis_files_path, 'canexp-{}.csv'.format(utcnow)),
-            model_exposures_file_path=os.path.join(oasis_files_path, 'modexp-{}.csv'.format(utcnow)),
-            keys_file_path=os.path.join(oasis_files_path, 'oasiskeys-{}.csv'.format(utcnow)),
-            keys_errors_file_path=os.path.join(oasis_files_path, 'oasiskeys-errors-{}.csv'.format(utcnow)),
+            source_exposures_file_path=source_exposures_file_path,
+            canonical_exposures_file_path=canonical_exposures_file_path,
+            model_exposures_file_path=model_exposures_file_path,
+            keys_file_path=keys_file_path,
+            keys_errors_file_path=keys_errors_file_path,
             items_file_path=os.path.join(oasis_files_path, 'items.csv'),
             coverages_file_path=os.path.join(oasis_files_path, 'coverages.csv'),
             gulsummaryxref_file_path=os.path.join(oasis_files_path, 'gulsummaryxref.csv')
