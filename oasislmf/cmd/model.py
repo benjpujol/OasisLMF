@@ -442,6 +442,7 @@ class GenerateOasisFilesCmd(OasisBaseCommand):
         parser.add_argument('-k', '--keys-data-path', default=None, help='Path to Oasis files')
         parser.add_argument('-v', '--model-version-file-path', default=None, help='Model version file path')
         parser.add_argument('-l', '--lookup-package-path', default=None, help='Keys data directory path')
+        parser.add_argument('-n', '--no_timestamp', default=True, type=bool, help='Do not timestamp exposure files')
         parser.add_argument(
             '-p', '--canonical-exposures-profile-json-path', default=None,
             help='Path of the supplier canonical exposures profile JSON file'
@@ -482,6 +483,8 @@ class GenerateOasisFilesCmd(OasisBaseCommand):
         keys_data_path = as_path(inputs.get('keys_data_path', required=False, is_path=True), 'Keys data path', preexists=False)
         model_version_file_path = as_path(inputs.get('model_version_file_path', required=False, is_path=True), 'Model version file path', preexists=False)
         lookup_package_path = as_path(inputs.get('lookup_package_path', required=False, is_path=True), 'Lookup package path', preexists=False)
+        
+        no_timestamp = bool(inputs.get('no_timestamp', required=False, default=False))
 
         if not (lookup_config_fp or (keys_data_path and model_version_file_path and lookup_package_path)):
             raise OasisException('Either the lookup config JSON file path or the keys data path + model version file path + lookup package path must be provided')
@@ -520,7 +523,8 @@ class GenerateOasisFilesCmd(OasisBaseCommand):
         self.logger.info('\t{}, {}'.format(model_info, lookup))
 
         self.logger.info('\nCreating Oasis model object')
-        model = OasisExposuresManager().create(
+        oasis_exposure_manager = OasisExposuresManager(do_timestamp = not no_timestamp)
+        model = oasis_exposure_manager.create(
             model_supplier_id=model_info['supplier_id'],
             model_id=model_info['model_id'],
             model_version=model_info['model_version'],
@@ -542,7 +546,7 @@ class GenerateOasisFilesCmd(OasisBaseCommand):
         Path(oasis_files_path).mkdir(parents=True, exist_ok=True)
 
         self.logger.info('\nGenerating Oasis files for model')
-        oasis_files = OasisExposuresManager().start_files_pipeline(
+        oasis_files = oasis_exposure_manager.start_files_pipeline(
             oasis_model=model,
             logger=self.logger,
         )
