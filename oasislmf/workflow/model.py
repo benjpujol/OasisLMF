@@ -157,3 +157,22 @@ def generate_losses(
         model_runner_module.run(analysis_settings, ktools_num_processes, filename=script_path)
 
     logger.info('\nLoss outputs generated in {}'.format(os.path.join(model_run_dir_path, 'output')))
+
+
+def transform_source_to_canonical(
+    source_file_path, output_file_path, xslt_transformation_file_path, xsd_validation_file_path,
+    logger=logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)):
+
+    logger.info('\nGenerating a canonical file {} from source file {}'.format(output_file_path, source_file_path))
+    translator = Translator(source_file_path, output_file_path, xslt_transformation_file_path, xsd_validation_file_path, append_row_nums=True)
+    translator()
+    logger.info('\nOutput file {} successfully generated'.format(output_file_path))
+
+def transform_canonical_to_model(
+    canonical_exposures_file_path, output_file_path, xslt_transformation_file_path, xsd_validation_file_path,
+    logger=logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)):
+
+    logger.info('\nGenerating a model exposures file {} from canonical exposures file {}'.format(output_file_path, canonical_exposures_file_path))
+    translator = Translator(canonical_exposures_file_path, output_file_path, xslt_transformation_file_path, xsd_validation_file_path ,append_row_nums=True)
+    translator()
+    logger.info('\nOutput file {} successfully generated'.format(output_file_path))

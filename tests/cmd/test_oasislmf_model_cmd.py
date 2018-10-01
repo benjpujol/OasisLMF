@@ -24,7 +24,7 @@ from oasislmf.utils.exceptions import OasisException
 
 from argparse import Namespace
 import oasislmf.cmd.model
-from filecmp import dircmp
+from filecmp import dircmp, cmp
 
 TEST_DIRECTORY = os.path.dirname(__file__)
 
@@ -44,6 +44,9 @@ class TestOasislmfModelCmd(TestCase):
                 return False
         return True
 
+    def file_match(self, f1, f2):
+        return cmp(f1, f2)
+    
     @patch("os.getcwd")
     def test_model_run(self, mock_os_getcwd):
         with TemporaryDirectory() as d:
@@ -88,6 +91,7 @@ class TestOasislmfModelCmd(TestCase):
 
     @patch("os.getcwd")
     def test_model_generate_losses(self, mock_os_getcwd):
+
         with TemporaryDirectory() as d:
             oasis_files_path = os.path.join(CMD_REFERENCE_FOLDER, "generate_oasis_files")
             model_run_dir_name = d
@@ -95,7 +99,7 @@ class TestOasislmfModelCmd(TestCase):
                 config=os.path.join(TEST_DIRECTORY, "command_input/oasislmf.json"), 
                 ktools_num_processes=1,
                 oasis_files_path=oasis_files_path,
-                model_run_dir_path=model_run_dir_name                
+                model_run_dir_path=model_run_dir_name
             )
             cmd = oasislmf.cmd.model.GenerateLossesCmd()
             cmd.action(args)
@@ -111,3 +115,49 @@ class TestOasislmfModelCmd(TestCase):
                 )
             )
         
+    @patch("os.getcwd")
+    def test_transform_source_to_canonical(self, mock_os_getcwd):
+        with TemporaryDirectory() as d:
+            out_file_path = os.path.join(d, "canexp.csv")
+            args = Namespace(
+                config=os.path.join(TEST_DIRECTORY, "command_input/oasislmf.json"),                 
+                source_file_path="data/SourceLocPiWind.csv",
+                source_file_type="exposures",
+                xsd_validation_file_path="flamingo/PiWind/Files/ValidationFiles/Generic_Windstorm_CanLoc_A.xsd",
+                xslt_transformation_file_path="flamingo/PiWind/Files/TransformationFiles/MappingMapToGeneric_Windstorm_CanLoc_A.xslt",
+                output_file_path=out_file_path
+            )
+            cmd = oasislmf.cmd.model.TransformSourceToCanonicalFileCmd()
+            cmd.action(args)
+            reference_file_path = os.path.join(
+                CMD_REFERENCE_FOLDER, "transform_source_to_canonical", "canexp.csv")
+
+            self.assertTrue(
+                self.file_match(
+                    out_file_path,
+                    reference_file_path
+                )
+            )
+
+    @patch("os.getcwd")
+    def test_transform_canonical_to_model(self, mock_os_getcwd):
+        with TemporaryDirectory() as d:
+            out_file_path = os.path.join(d, "modexp.csv")
+            args = Namespace(
+                config=os.path.join(TEST_DIRECTORY, "command_input/oasislmf.json"),                 
+                canonical_exposures_file_path="canexp.csv",
+                xsd_validation_file_path="flamingo/PiWind/Files/ValidationFiles/piwind_modelloc.xsd",
+                xslt_transformation_file_path="flamingo/PiWind/Files/TransformationFiles/MappingMapTopiwind_modelloc.xslt",
+                output_file_path=out_file_path
+            )
+            cmd = oasislmf.cmd.model.TransformCanonicalToModelFileCmd()
+            cmd.action(args)
+            reference_file_path = os.path.join(
+                CMD_REFERENCE_FOLDER, "transform_canonical_to_model", "modexp.csv")
+
+            self.assertTrue(
+                self.file_match(
+                    out_file_path,
+                    reference_file_path
+                )
+            )
