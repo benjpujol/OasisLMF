@@ -680,7 +680,7 @@ class OasisExposuresManager(implements(OasisExposuresManagerInterface)):
             oasis_files_path = oasis_model.resources.get('oasis_files_path')
 
         if not oasis_files_path:
-            raise OasisException('No output directory provided.'.format(oasis_model))
+            raise OasisException('No output directory provided.')
         elif not os.path.exists(oasis_files_path):
             raise OasisException('Output directory {} does not exist on the filesystem.'.format(oasis_files_path))
 

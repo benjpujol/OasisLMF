@@ -3,6 +3,7 @@ from collections import Counter
 from tempfile import NamedTemporaryFile
 from unittest import TestCase
 
+import io
 import os
 
 import shutil
@@ -24,7 +25,12 @@ from oasislmf.utils.exceptions import OasisException
 
 from argparse import Namespace
 import oasislmf.cmd.model
+from oasislmf.workflow.model import generate_oasis_files_from_canonical_and_keys
+
 from filecmp import dircmp, cmp
+
+import sys
+import logging
 
 TEST_DIRECTORY = os.path.dirname(__file__)
 
@@ -161,3 +167,33 @@ class TestOasislmfModelCmd(TestCase):
                     reference_file_path
                 )
             )
+
+
+    #TODO: This should be in a seperate workflow tests module. 
+    @patch("os.getcwd")
+    def test_generate_oasis_files_from_canonical_and_keys(self, mock_os_getcwd):
+        
+        with TemporaryDirectory() as d:
+            oasis_files_path = d
+            logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
+            canonical_exposures_profile_path = \
+                os.path.join(TEST_DIRECTORY, "command_input", "oasislmf-piwind-canonical-loc-profile.json")
+            with io.open(canonical_exposures_profile_path, 'r', encoding='utf-8') as f:
+                canonical_exposures_profile = json.load(f)
+            generate_oasis_files_from_canonical_and_keys(
+                oasis_files_path=d,
+                keys_file_path=os.path.join(TEST_DIRECTORY, "command_input", "oasiskeys.csv"),
+                canonical_exposures_file_path=os.path.join(TEST_DIRECTORY, "command_input", "canexp.csv"),
+                canonical_exposures_profile=canonical_exposures_profile,
+                logger=logging.getLogger()
+            )
+
+            reference_dir_name = os.path.join(CMD_REFERENCE_FOLDER, "generate_oasis_files_from_canonical_and_keys")
+
+            self.assertTrue(
+                self.dir_match(
+                    oasis_files_path,
+                    reference_dir_name
+                )
+            )        

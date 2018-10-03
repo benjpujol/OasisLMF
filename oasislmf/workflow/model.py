@@ -38,7 +38,7 @@ def generate_oasis_files(
     canonical_exposures_validation_file_path,
     canonical_to_model_exposures_transformation_file_path,    
     no_timestamp = False,
-    logger=logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)):
+    logger=logging.getLogger()):
 
     if not (lookup_config_fp or (keys_data_path and model_version_file_path and lookup_package_path)):
         raise OasisException('Either the lookup config JSON file path or the keys data path + model version file path + lookup package path must be provided')
@@ -83,6 +83,29 @@ def generate_oasis_files(
 
     logger.info('\nGenerated Oasis files for model: {}'.format(oasis_files))
 
+def generate_oasis_files_from_canonical_and_keys(
+    oasis_files_path,
+    keys_file_path,
+    canonical_exposures_file_path,
+    canonical_exposures_profile,
+    logger=logging.getLogger()):
+
+    logger.info('\nCreating Oasis model object')
+    oasis_exposure_manager = OasisExposuresManager()
+
+    Path(oasis_files_path).mkdir(parents=True, exist_ok=True)
+
+    logger.info('\nGenerating Oasis files for model')
+    oasis_exposure_manager.generate_oasis_files(
+        items_file_path=os.path.join(oasis_files_path, 'items.csv'),
+        coverages_file_path=os.path.join(oasis_files_path, 'coverages.csv'),
+        gulsummaryxref_file_path=os.path.join(oasis_files_path, 'gulsummaryxref.csv'),
+        canonical_exposures_file_path=canonical_exposures_file_path,
+        keys_file_path=keys_file_path,
+        canonical_exposures_profile=canonical_exposures_profile
+    )
+
+    logger.info('\nGenerated Oasis files for model: {}'.format(oasis_files_path))
 
 def generate_losses(
     oasis_files_path,
@@ -93,7 +116,7 @@ def generate_losses(
     ktools_script_name,
     ktools_num_processes,
     no_execute = False,
-    logger=logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)):
+    logger=logging.getLogger()):
 
     if not model_run_dir_path:
         utcnow = get_utctimestamp(fmt='%Y%m%d%H%M%S')
@@ -160,8 +183,7 @@ def generate_losses(
 
 
 def transform_source_to_canonical(
-    source_file_path, output_file_path, xslt_transformation_file_path, xsd_validation_file_path,
-    logger=logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)):
+    source_file_path, output_file_path, xslt_transformation_file_path, xsd_validation_file_path, logger=logging.getLogger()):
 
     logger.info('\nGenerating a canonical file {} from source file {}'.format(output_file_path, source_file_path))
     translator = Translator(source_file_path, output_file_path, xslt_transformation_file_path, xsd_validation_file_path, append_row_nums=True)
@@ -169,8 +191,7 @@ def transform_source_to_canonical(
     logger.info('\nOutput file {} successfully generated'.format(output_file_path))
 
 def transform_canonical_to_model(
-    canonical_exposures_file_path, output_file_path, xslt_transformation_file_path, xsd_validation_file_path,
-    logger=logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)):
+    canonical_exposures_file_path, output_file_path, xslt_transformation_file_path, xsd_validation_file_path, logger=logging.getLogger()):
 
     logger.info('\nGenerating a model exposures file {} from canonical exposures file {}'.format(output_file_path, canonical_exposures_file_path))
     translator = Translator(canonical_exposures_file_path, output_file_path, xslt_transformation_file_path, xsd_validation_file_path ,append_row_nums=True)
