@@ -496,8 +496,9 @@ class OasisExposuresManager(implements(OasisExposuresManagerInterface)):
             'item_id',
             'coverage_id',
             'tiv',
-            'areaperil_id',
-            'vulnerability_id',
+            'model_data'
+            # 'areaperil_id',
+            # 'vulnerability_id',
             'group_id',
             'summary_id',
             'summaryset_id'
@@ -534,8 +535,9 @@ class OasisExposuresManager(implements(OasisExposuresManagerInterface)):
                         'item_id': item_id,
                         'coverage_id': item_id,
                         'tiv': tiv_value,
-                        'areaperil_id': keys_item['areaperilid'],
-                        'vulnerability_id': keys_item['vulnerabilityid'],
+                        'model_data': keys_item['model_data'],
+                        # 'areaperil_id': keys_item['areaperilid'],
+                        # 'vulnerability_id': keys_item['vulnerabilityid'],
                         'group_id': item_id,
                         'summary_id': 1,
                         'summaryset_id': 1,
@@ -565,7 +567,7 @@ class OasisExposuresManager(implements(OasisExposuresManagerInterface)):
             data_frame = self.load_master_data_frame(**kwargs)
 
         self._write_csvs(
-            ['item_id', 'coverage_id', 'areaperil_id', 'vulnerability_id', 'group_id'],
+            ['item_id', 'coverage_id', 'model_data', 'group_id'],
             data_frame,
             kwargs['items_file_path']
         )
