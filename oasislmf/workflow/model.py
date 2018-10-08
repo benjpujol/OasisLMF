@@ -25,7 +25,6 @@ from ..utils.values import get_utctimestamp
 from ..keys.lookup import OasisLookupFactory
 
 def generate_oasis_files(
-    default_oasis_files_path,
     oasis_files_path,
     lookup_config_fp,
     keys_data_path,

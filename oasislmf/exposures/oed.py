@@ -511,7 +511,7 @@ InuringLayer = namedtuple(
     "InuringLayer",
     "inuring_priority reins_numbers is_valid validation_messages")
 Item = namedtuple(
-    "Item", "item_id coverage_id areaperil_id vulnerability_id group_id")
+    "Item", "item_id coverage_id model_data group_id")
 Coverage = namedtuple(
     "Coverage", "coverage_id tiv")
 FmProgramme = namedtuple(

@@ -535,7 +535,7 @@ class OasisExposuresManager(implements(OasisExposuresManagerInterface)):
                         'item_id': item_id,
                         'coverage_id': item_id,
                         'tiv': tiv_value,
-                        'model_data': keys_item['model_data'],
+                        'model_data': keys_item['modeldata'],
                         # 'areaperil_id': keys_item['areaperilid'],
                         # 'vulnerability_id': keys_item['vulnerabilityid'],
                         'group_id': item_id,
