@@ -1,4 +1,5 @@
 argparsetree==0.0.5
+asyncio==3.4.3
 backports.tempfile
 chainmap
 future
