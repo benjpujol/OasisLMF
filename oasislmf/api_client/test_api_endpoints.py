@@ -30,13 +30,12 @@ api.headers = {
 
 ## Upload ACC / LOC files
 # https://toolbelt.readthedocs.io/en/latest/uploading-data.html
-def upload(file_path, url, session):
+def upload(file_path, url, session, content_type='text/csv'):
     with io.open(os.path.abspath(file_path), 'rb') as f:
         m = MultipartEncoder(fields={
-            'file': (os.path.basename(file_path), f, 'text/csv')})
+            'file': (os.path.basename(file_path), f, content_type)})
         return session.post(url, data=m,
                             headers={'Content-Type': m.content_type})
-
 # --------------------------------------------------------------------------- #
 
 
@@ -69,6 +68,11 @@ if get_token_rsp.status_code == requests.codes.ok:
 
 ## Update Token
 api.headers['authorization'] = 'Bearer {}'.format(tkn_refresh)
+healthcheck_url = urljoin(API_URL, 'helthcheck/')
+healthcheck_rsp = api.get(healthcheck_url)
+print(healthcheck_url)
+print(healthcheck_rsp)
+print(healthcheck_rsp.text)
 update_token_url = urljoin(API_URL,'access_token/')
 update_token_rsp = api.post(update_token_url)
 tkn_access = update_token_rsp.json()['access_token']
@@ -132,6 +136,16 @@ print(gen_analyses_rsp)
 print(gen_analyses_rsp.text)
 
 
+# Upload Analyese Settings
+analysis = gen_analyses_rsp.json()
+settings_upload_url =  analysis['settings_file']
+settings_upload_rsp = upload('test_data/analysis_settings.json', 
+                             settings_upload_url, api,'application/json')
+print(settings_upload_url)
+print(settings_upload_rsp)
+print(settings_upload_rsp.text)
+
+
 
 ## Poll for inputfiles status
 
@@ -143,6 +157,8 @@ print(gen_analyses_rsp.text)
 #  "model": "2",
 #}
 
+get_analyses_url = urljoin(API_URL, API_VER, 'analyses/')
+get_analyses_rsp = api.get(get_analyses_url)
 #r_create_analyses = api.post(API_URL + API_VER + 'analyses/' ,json=analysis_piwind)
 #analyses = r_create_analyses.json()
 
