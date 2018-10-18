@@ -1,14 +1,10 @@
 #!/bin/env python
-get_ipython().run_line_magic('load_ext', 'autoreload')
-get_ipython().run_line_magic('autoreload', '2')
 
 import io
 import os
 import requests
 from requests_toolbelt import MultipartEncoder
 from posixpath import join as urljoin
-#import unittest
-#import base64
 
 API_BASE_URL  = 'http://10.10.0.182'
 API_BASE_PORT = '8000'
@@ -161,45 +157,4 @@ get_analyses_url = urljoin(API_URL, API_VER, 'analyses/')
 get_analyses_rsp = api.get(get_analyses_url)
 #r_create_analyses = api.post(API_URL + API_VER + 'analyses/' ,json=analysis_piwind)
 #analyses = r_create_analyses.json()
-
-
-'''
-## -------------------------------------------------------------------------- #
-Methods to override
-
-class OasisAPIClient(object):
-
-    def __init__(self, oasis_api_url, logger=None):
-        pass
-    ## Duplicate old func for compatibility
-    def upload_inputs_from_directory(
-        self, directory, bin_directory=None, do_il=False, do_ri=False, do_build=False, do_clean=False):
-        pass
-    def run_analysis(self, analysis_settings_json, input_location):
-        pass
-    def run_analysis(self, analysis_settings_json, input_location):
-        pass
-    def get_analysis_status(self, analysis_status_location):
-        pass
-    def run_analysis_and_poll(self, analysis_settings_json, input_location, outputs_directory, analysis_poll_interval=5):
-        pass
-    def delete_resource(self, path):
-        pass
-    def delete_exposure(self, input_location):
-        pass
-    def delete_outputs(self, outputs_location):
-        pass
-    def download_resource(self, path, localfile):
-        pass
-    def download_exposure(self, exposure_location, localfile):
-        pass
-    def download_outputs(self, outputs_location, localfile):
-        pass
-    def health_check(self, poll_attempts=1, retry_delay=5):
-        pass
-
-## Status codes list
-https://github.com/requests/requests/blob/master/requests/status_codes.py#L22-L100
-
-'''
 
