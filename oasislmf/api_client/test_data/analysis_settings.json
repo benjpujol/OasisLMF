@@ -19,7 +19,7 @@
             }
         ],
         "gul_threshold": 0,
-        "il_output": true,
+        "il_output": false,
         "il_summaries": [
             {
                 "aalcalc": true,
