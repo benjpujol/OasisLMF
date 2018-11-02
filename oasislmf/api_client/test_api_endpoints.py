@@ -2,6 +2,7 @@
 
 import io
 import os
+import time
 import requests
 from requests_toolbelt import MultipartEncoder
 from posixpath import join as urljoin
@@ -79,17 +80,17 @@ print(update_token_rsp.text)
 
 
 
-## Create Model
-add_model_data = {
-  "supplier_id": "OasisLMF",
-  "model_id": "PiWind",
-  "version_id": "0.0.0.1"
-}
-add_model_url = urljoin(API_URL, API_VER, 'models/') 
-add_model_rsp = api.post(add_model_url, json=add_model_data)
-print(add_model_url)
-print(add_model_rsp)
-print(add_model_rsp.text)
+# ## Create Model
+# add_model_data = {
+#   "supplier_id": "OasisLMF",
+#   "model_id": "PiWind",
+#   "version_id": "1"
+# }
+# add_model_url = urljoin(API_URL, API_VER, 'models/') 
+# add_model_rsp = api.post(add_model_url, json=add_model_data)
+# print(add_model_url)
+# print(add_model_rsp)
+# print(add_model_rsp.text)
 
 #if create_model_rsp.status_code == requests.codes.ok:
 #    pass
@@ -123,7 +124,7 @@ print(loc_upload_rsp.text)
 
 gen_analyses_data = {
   "name": "test_piwind",
-  "model": "2"
+  "model": "6"
 }
 gen_analyses_url  = urljoin(API_URL, API_VER, 'portfolios', str(portfolio['id']), 'create_analysis/')
 gen_analyses_rsp  = api.post(gen_analyses_url, json=gen_analyses_data)
@@ -142,19 +143,31 @@ print(settings_upload_rsp)
 print(settings_upload_rsp.text)
 
 
+# Wait for input generation to complete and run 
+analyses_url = urljoin(API_URL, API_VER, 'analyses', str(analysis['id']))
+for x in range(10):
+    get_analyses_rsp = api.get(analyses_url)
+    analysis = get_analyses_rsp.json()
+    print('Update status: %s' % analysis['status'])
+    if analysis['status'] in ['INPUTS_GENERATION_STARTED']:
+        time.sleep(2)
+    elif analysis['status'] in ['READY']:
+        run_analyses_url =  urljoin(analyses_url, 'run/')
+        run_analyses_rsp = api.post(run_analyses_url)
+        # Check complete 
+        for x in range(10):
+             get_analyses_rsp = api.get(analyses_url)
+             analysis = gen_analyses_rsp.json()
+             if analysis['status'] in ['RUN_COMPLETED']:
+                print('Run Complete')
+                break
+        break
+    else:
+        print('analyses failed')
+        break 
 
-## Poll for inputfiles status
 
 
-## Create an analysis
-#analysis_piwind = {
-#  "name": "string",
-#  "portfolio": str(portfolio['id']),
-#  "model": "2",
-#}
-
-get_analyses_url = urljoin(API_URL, API_VER, 'analyses/')
-get_analyses_rsp = api.get(get_analyses_url)
-#r_create_analyses = api.post(API_URL + API_VER + 'analyses/' ,json=analysis_piwind)
-#analyses = r_create_analyses.json()
+# #r_create_analyses = api.post(API_URL + API_VER + 'analyses/' ,json=analysis_piwind)
+# #analyses = r_create_analyses.json()
 
