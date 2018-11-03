@@ -902,11 +902,11 @@ class RunCmd(OasisBaseCommand):
 
 class ModelsCmd(OasisBaseCommand):
     sub_commands = {
-        'generate-peril-areas-rtree-file-index': GeneratePerilAreasRtreeFileIndexCmd,
-        'transform-source-to-canonical': TransformSourceToCanonicalFileCmd,
-        'transform-canonical-to-model': TransformCanonicalToModelFileCmd,
-        'generate-keys': GenerateKeysCmd,
-        'generate-oasis-files': GenerateOasisFilesCmd,
-        'generate-losses': GenerateLossesCmd,
+        'peril-areas-rtree-index': GeneratePerilAreasRtreeFileIndexCmd,
+        'source-to-canonical': TransformSourceToCanonicalFileCmd,
+        'canonical-to-model': TransformCanonicalToModelFileCmd,
+        'keys': GenerateKeysCmd,
+        'oasis-files': GenerateOasisFilesCmd,
+        'losses': GenerateLossesCmd,
         'run': RunCmd,
     }
