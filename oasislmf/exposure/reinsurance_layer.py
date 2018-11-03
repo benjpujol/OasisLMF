@@ -14,7 +14,7 @@ import shutil
 import json
 from collections import namedtuple
 
-from oasislmf.exposures import oed
+import .oed as oed
 
 
 # Meta-data about an inuring layer

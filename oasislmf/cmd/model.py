@@ -11,8 +11,8 @@ from argparse import RawDescriptionHelpFormatter
 
 from pathlib2 import Path
 
-from ..exposures.csv_trans import Translator
-from ..exposures.manager import OasisExposuresManager
+from ..exposure.csv_trans import Translator
+from ..exposure.manager import OasisExposuresManager
 
 from ..model_execution.bash import genbash
 from ..model_execution import runner
