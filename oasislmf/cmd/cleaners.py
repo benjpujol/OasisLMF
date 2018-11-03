@@ -22,13 +22,18 @@ def as_path(value, name, preexists=True):
 
     :return: The absolute path of the input path
     """
-    if value is not None:
-        value = os.path.abspath(value) if not os.path.isabs(value) else value
+    _value = ''.join(value)
 
-    if preexists and not (value is not None and os.path.exists(value)):
-        raise OasisException('{} does not exist: {}'.format(name, value))
+    if not _value:
+        return
 
-    return value
+    if not os.path.isabs(_value):
+        _value = os.path.abspath(_value)
+
+    if preexists and not os.path.exists(_value):
+        raise OasisException('{} does not exist but indicated as pre-existing: {}'.format(name, _value))
+
+    return _value
 
 
 class PathCleaner(object):
