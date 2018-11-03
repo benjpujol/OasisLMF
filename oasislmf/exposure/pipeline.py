@@ -57,7 +57,7 @@ class OasisFilesPipeline(object):
             'gulsummaryxref': self._gulsummaryxref_file_path
         }
 
-        self._fm_files = {
+        self._il_files = {
             'fm_policytc': self._fm_policytc_file_path,
             'fm_profile': self._fm_profile_file_path,
             'fm_programme': self._fm_programme_file_path,
@@ -65,7 +65,7 @@ class OasisFilesPipeline(object):
             'fmsummaryxref': self._fmsummaryxref_file_path
         }
 
-        self._oasis_files = {k:v for k, v in chain(self._gul_files.items(), self._fm_files.items())}
+        self._oasis_files = {k:v for k, v in chain(self._gul_files.items(), self._il_files.items())}
 
     def __str__(self):
         return '{}: {}'.format(self.__repr__(), self.model_key)
@@ -237,7 +237,7 @@ class OasisFilesPipeline(object):
 
     @fm_policytc_file_path.setter
     def fm_policytc_file_path(self, p):
-        self._fm_policytc_file_path = self.fm_files['fm_policytc'] = self.oasis_files['fm_policytc'] = p
+        self._fm_policytc_file_path = self.il_files['fm_policytc'] = self.oasis_files['fm_policytc'] = p
 
     @property
     def fm_profile_file_path(self):
@@ -251,7 +251,7 @@ class OasisFilesPipeline(object):
 
     @fm_profile_file_path.setter
     def fm_profile_file_path(self, p):
-        self._fm_profile_file_path = self.fm_files['fm_profile'] = self.oasis_files['fm_profile'] = p
+        self._fm_profile_file_path = self.il_files['fm_profile'] = self.oasis_files['fm_profile'] = p
 
     @property
     def fm_programme_file_path(self):
@@ -265,7 +265,7 @@ class OasisFilesPipeline(object):
 
     @fm_programme_file_path.setter
     def fm_programme_file_path(self, p):
-        self._fm_programme_file_path = self.fm_files['fm_programme'] = self.oasis_files['fm_programme'] = p
+        self._fm_programme_file_path = self.il_files['fm_programme'] = self.oasis_files['fm_programme'] = p
 
     @property
     def fm_xref_file_path(self):
@@ -279,7 +279,7 @@ class OasisFilesPipeline(object):
 
     @fm_xref_file_path.setter
     def fm_xref_file_path(self, p):
-        self._fm_xref_file_path = self.fm_files['fm_xref'] = self.oasis_files['fm_xref'] = p
+        self._fm_xref_file_path = self.il_files['fm_xref'] = self.oasis_files['fm_xref'] = p
 
     @property
     def fmsummaryxref_file_path(self):
@@ -293,7 +293,7 @@ class OasisFilesPipeline(object):
 
     @fmsummaryxref_file_path.setter
     def fmsummaryxref_file_path(self, p):
-        self._fmsummaryxref_file_path = self.fm_files['fmsummaryxref'] = self.oasis_files['fmsummaryxref'] = p
+        self._fmsummaryxref_file_path = self.il_files['fmsummaryxref'] = self.oasis_files['fmsummaryxref'] = p
 
     @property
     def source_files(self):
@@ -327,15 +327,15 @@ class OasisFilesPipeline(object):
         return self._gul_files
 
     @property
-    def fm_files(self):
+    def il_files(self):
         """
-        Oasis FM files set property - getter only.
+        Oasis IL files set property - getter only.
 
             :getter: Gets the complete set of generated FM files, including
                      ``fm_policytc.csv``, ``fm_profile.csv``, `fm_programme.csv`,
                      ``fm_xref.csv``, ``fmsummaryxref.csv``.
         """
-        return self._fm_files
+        return self._il_files
 
     @property
     def oasis_files(self):
@@ -364,8 +364,8 @@ class OasisFilesPipeline(object):
                                       exposures file path, keys file path,
                                       keys errors file path
                 'gul': GUL files
-                'fm': FM files
-                `oasis`: GUL files + GM files
+                'il': IL files
+                `oasis`: GUL files + IL files
 
             :type files_subsets: list
         """

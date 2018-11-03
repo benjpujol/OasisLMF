@@ -457,11 +457,11 @@ class GenerateOasisFilesCmd(OasisBaseCommand):
         parser.add_argument('-l', '--lookup-package-path', default=None, help='Lookup package path')
         parser.add_argument(
             '-p', '--canonical-exposures-profile-json-path', default=None,
-            help='Supplier canonical exposures profile JSON file path'
+            help='Canonical exposures profile JSON file path'
         )
         parser.add_argument(
             '-q', '--canonical-accounts-profile-json-path', default=None,
-            help='Supplier canonical accounts profile JSON file path'
+            help='Canonical accounts profile JSON file path'
         )
         parser.add_argument('-x', '--source-exposures-file-path', default=None, help='Source exposures file path')
         parser.add_argument('-y', '--source-accounts-file-path', default=None, help='Source accounts file path')
@@ -490,10 +490,10 @@ class GenerateOasisFilesCmd(OasisBaseCommand):
             help='Canonical exposures validation file (XSD) path, (optional argument)'
 
         )
-        parser.add_argument('--fm', action='store_true', help='Generate FM files - False if absent')
+        parser.add_argument('--il', action='store_true', help='Generate IL/FM files - False if absent')
         parser.add_argument(
-            '-u', '--fm-agg-profile-path', default=None,
-            help='Supplier FM aggregation profile JSON file path'
+            '-u', '--il-agg-profile-path', default=None,
+            help='IL aggregation profile JSON file path'
 
         )
 
@@ -526,7 +526,7 @@ class GenerateOasisFilesCmd(OasisBaseCommand):
         )
         canonical_exposures_profile_json_path = as_path(
             inputs.get('canonical_exposures_profile_json_path', required=True, is_path=True),
-            'Supplier canonical exposures profile JSON path'
+            'Canonical exposures profile JSON path'
         )
         source_to_canonical_exposures_transformation_file_path = as_path(
             inputs.get('source_to_canonical_exposures_transformation_file_path', required=True, is_path=True),
@@ -557,7 +557,7 @@ class GenerateOasisFilesCmd(OasisBaseCommand):
         )
         canonical_accounts_profile_json_path = as_path(
             inputs.get('canonical_accounts_profile_json_path', required=False, is_path=True),
-            'Supplier canonical accounts profile JSON path',
+            'Canonical accounts profile JSON path',
             preexists=False
         )
         source_to_canonical_accounts_transformation_file_path = as_path(
@@ -567,19 +567,19 @@ class GenerateOasisFilesCmd(OasisBaseCommand):
         )
         fm_agg_profile_path = as_path(
             inputs.get('fm_agg_profile_path', required=False, is_path=True),
-            'Supplier FM aggregation profile JSON file path',
+            'IL aggregation profile JSON file path',
             preexists=False
         )
 
-        fm = inputs.get('fm', default=False)
-        if fm and not (source_accounts_file_path and canonical_accounts_profile_json_path and fm_agg_profile_path):
+        il = inputs.get('il', default=False)
+        if il and not (source_accounts_file_path and canonical_accounts_profile_json_path and fm_agg_profile_path):
             raise OasisException(
-                'FM option indicated but missing one or more of the following arguments: canonical accounts profile JSON file path,'
-                'source accounts file path, FM aggregation profile JSON file path'
+                'IL option indicated but missing one or more of the following arguments: canonical accounts profile JSON file path,'
+                'source accounts file path, IL aggregation profile JSON file path'
             )
 
         start_time = time.time()
-        self.logger.info('\nStarting Oasis files generation (@ {}): GUL=True, FM={}'.format(get_utctimestamp(), fm))
+        self.logger.info('\nStarting Oasis files generation (@ {}): GUL=True, IL={}'.format(get_utctimestamp(), il))
 
 
         self.logger.info('\nGetting model info and lookup')
@@ -624,7 +624,7 @@ class GenerateOasisFilesCmd(OasisBaseCommand):
 
         oasis_files = manager.start_oasis_files_pipeline(
             oasis_model=model,
-            fm=fm,
+            il=il,
             logger=self.logger
         )
 
@@ -682,7 +682,7 @@ class GenerateLossesCmd(OasisBaseCommand):
         parser.add_argument('-j', '--analysis-settings-json-file-path', default=None, help='Analysis settings JSON file path')
         parser.add_argument('-m', '--model-data-path', default=None, help='Model data path')
         parser.add_argument('-r', '--model-run-dir-path', default=None, help='Model run directory path')
-        parser.add_argument('--fm', action='store_true', help='Generate FM files - False if absent')
+        parser.add_argument('--il', action='store_true', help='Generate FM files - False if absent')
         parser.add_argument('-s', '--ktools-script-name', default=None, help='Relative or absolute path of the output file')
         parser.add_argument('-n', '--ktools-num-processes', default=-1, help='Number of ktools calculation processes to use', type=int)
         parser.add_argument('-x', '--no-execute', action='store_true', help='Whether to execute generated ktools script')
@@ -713,7 +713,7 @@ class GenerateLossesCmd(OasisBaseCommand):
 
         ktools_script_name = inputs.get('ktools_script_name', default='run_ktools')
 
-        fm = inputs.get('fm', default=False)
+        il = inputs.get('il', default=False)
 
         start_time = time.time()
         self.logger.info('\nStarting loss generation (@ {})'.format(get_utctimestamp()))
@@ -740,7 +740,7 @@ class GenerateLossesCmd(OasisBaseCommand):
         self.logger.info('\nConverting Oasis files to ktools binary files')
         oasis_files_path = os.path.join(model_run_dir_path, 'input', 'csv')
         binary_files_path = os.path.join(model_run_dir_path, 'input')
-        create_binary_files(oasis_files_path, binary_files_path, do_il=fm)
+        create_binary_files(oasis_files_path, binary_files_path, do_il=il)
 
         analysis_settings_json_file_path = os.path.join(model_run_dir_path, 'analysis_settings.json')
         try:
@@ -750,7 +750,7 @@ class GenerateLossesCmd(OasisBaseCommand):
 
             if analysis_settings.get('analysis_settings'):
                 analysis_settings = analysis_settings['analysis_settings']
-            analysis_settings['il_output'] = True if fm else False
+            analysis_settings['il_output'] = True if il else False
         except (IOError, TypeError, ValueError):
             raise OasisException('Invalid analysis settings JSON file or file path: {}.'.format(analysis_settings_json_file_path))
 
@@ -838,10 +838,10 @@ class RunCmd(OasisBaseCommand):
             '-f', '--canonical-to-model-exposures-transformation-file-path', default=None,
             help='Canonical exposures validation file (XSD) path, (optional argument)'
         )
-        parser.add_argument('--fm', action='store_true', help='Generate FM files - False if absent')
+        parser.add_argument('--il', action='store_true', help='Generate FM files - False if absent')
 
         parser.add_argument(
-            '-u', '--fm-agg-profile-path', default=None,
+            '-u', '--il-agg-profile-path', default=None,
             help='Supplier FM aggregation profile JSON file path'
         )
 
