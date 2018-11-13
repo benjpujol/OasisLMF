@@ -126,7 +126,7 @@ class API_portfolios(ApiEndpoint):
         data = {"name": name}  
         return self.connector.post(self.url_endpoint, json=data)
 
-    def update(self, name):
+    def update(self, ID, name):
         data = {"name": name}  
         return self.connector.put('{}{}/'.format(self.url_endpoint, ID), json=data)
 
@@ -162,7 +162,7 @@ class API_analyses(ApiEndpoint):
                 "model": model_id } 
         return self.connector.post(self.url_endpoint, json=data)
 
-    def update(self, name, portfolio_id, model_id):
+    def update(self, ID, name, portfolio_id, model_id):
         data = {"name": name,
                 "portfolio": portfolio_id,
                 "model": model_id } 
