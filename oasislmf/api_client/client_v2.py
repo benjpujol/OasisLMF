@@ -2,98 +2,180 @@
 
 import io
 import os
-import requests
-from requests_toolbelt import MultipartEncoder
-from requests import codes as status 
-from requests.exceptions import *
-from posixpath import join as urljoin
-import time
 import logging
+from connector_api import connector
+
+
+class ApiEndpoint(object):
+    
+    def __init__(self, connector, url_endpoint):
+        self.connector = connector
+        self.url_endpoint = url_endpoint
+
+    '''
+        data: dict of key paris to create
+
+        example:
+            new_model = {"supplier_id": 'FooBAR', "model_id": 'UKBF', "version_id":'1'}
+            r = models.create(new_model)
+
+            r.json() 
+            {
+                'id': 8,
+                'supplier_id': 'FooBAR',
+                'model_id': 'UKBF',
+                'version_id': '1',
+                'created': '18-11-13T15:48:07.285203+0000',
+                'modified': '18-11-13T15:48:07.285616+0000'
+            }
+
+
+    '''
+    def create(self, data):
+        return self.connector.post(self.url_endpoint, json=data)
+    def get(self, ID=None):
+        if ID:
+            return self.connector.get('{}{}/'.format(self.url_endpoint, ID))
+        else:    
+            return self.connector.get(self.url_endpoint)
+    def delete(self, ID):
+        return self.connector.delete('{}{}/'.format(self.url_endpoint, ID))
+        
+
+class FileEndpoint(object):
+    def __init__(self, connector, url_endpoint, url_resource):
+        self.connector = connector
+        self.url_endpoint = url_endpoint
+        self.url_resource = url_resource
+
+    def _build_url(self, ID):
+        return '{}{}{}/{}'.format(
+            self.connector.url_base,
+            self.url_endpoint,
+            ID,
+            self.url_resource
+        )
+
+    def upload(self, ID, file_path):
+        '''
+            In [14]: r = portfolios.accounts_file.upload(43, '/home/sam/repos/models/OasisPiWind/tests/data/SourceAccPiWind.csv')
+            In [16]: r.text
+            Out[16]: '{"created":"18-11-13T16:55:31.290627+0000","file":"/media/a580c956a8414ece95b278d16aa0aa3c.csv"}'
+        '''
+        return self.connector.upload(file_path, self._build_url(ID))
+
+    def download(self):
+        pass
+    def delete(self):
+        pass
+
+
+class API_models(ApiEndpoint):
+    def search(self, metadata):
+        '''
+        metadata: dict of key pairs to search for
+
+        example:
+            m = {'supplier_id': 'OasisIM'}
+            r = models.search(m)
+            r.json()
+
+            [{
+                'id': 6,
+                'supplier_id': 'OasisIM',
+                'model_id': 'PiWind',
+                'version_id': '1',
+                'created': '18-10-17T11:07:33.407742+0000',
+                'modified': '18-10-17T11:07:33.408123+0000'
+            }]
+        '''
+        search_string = ''
+        for key in metadata:
+            search_string += '?{}={}'.format(key, metadata[key])
+        return self.connector.get('{}{}'.format(self.url_endpoint, search_string))
+
+
+class API_portfolios(ApiEndpoint):
+
+    def __init__(self, connector, url_endpoint):
+        super().__init__(connector, url_endpoint)
+        self.accounts_file = FileEndpoint(self.connector, self.url_endpoint, 'accounts_file/')
+        self.location_file = FileEndpoint(self.connector, self.url_endpoint, 'location_file/')
+        self.reinsurance_info_file = FileEndpoint(self.connector, self.url_endpoint, 'reinsurance_info_file/')
+        self.reinsurance_source_file = FileEndpoint(self.connector, self.url_endpoint, 'reinsurance_source_file/')
+
+    def search(self, metadata):
+        search_string = ''
+        for key in metadata:
+            search_string += '?{}={}'.format(key, metadata[key])
+        return self.connector.get('{}{}'.format(self.url_endpoint, search_string))
+
+
+    def create(self, name):
+        """ Create New portfolio
+            
+            Override ApiEndpoint create method
+        """
+        data = {
+          "name": name,
+        }  
+        pass
+    def update(self, ID, accounts_file=None, location_file=None, ri_info_file=None, ri_source_file=None):
+        """ Update Exisiting portfolio
+        """
+        pass
+
+    def create_analyses(self, ID, model_id):
+        """ Create new analyses from Exisiting portfolio
+        """
+        pass
+
+class API_analyses(ApiEndpoint):
+
+    def __init__(self, connector, url_endpoint):
+        super().__init__(connector, url_endpoint)
+        self.input_errors_file = FileEndpoint(self.connector, self.url_endpoint, 'input_errors_file/')
+        self.input_file = FileEndpoint(self.connector, self.url_endpoint, 'input_file/')
+        self.input_generation_traceback_file = FileEndpoint(self.connector, self.url_endpoint, 'input_generation_traceback_file/')
+        self.output_file = FileEndpoint(self.connector, self.url_endpoint, 'output_file/')
+        self.run_traceback_file = FileEndpoint(self.connector, self.url_endpoint, 'run_traceback_file/')
+        self.settings_file = FileEndpoint(self.connector, self.url_endpoint, 'settings_file/')
+
+    def search(self, metadata):
+        search_string = ''
+        for key in metadata:
+            search_string += '?{}={}'.format(key, metadata[key])
+        return self.connector.get('{}{}'.format(self.url_endpoint, search_string))
+   
+
+    def create(self, name, portfolio_id, model_id):
+        data = {
+          "name": name,
+          "portfolio": portfolio_id,
+          "model": model_id
+        }
+        
+
+
+    def generate(self, ID):
+        pass
+
+    def run(self, ID):
+        pass
 
 class OasisAPIClient(object):
     def __init__(self, api_url, api_ver, timeout=5, logger=None):
         self._logger = logger or logging.getLogger()
-        self.tkn_access  = None
-        self.tkn_refresh = None
-        self.timeout = timeout
 
-        self.url_base    = api_url
-        self.url_vers    = api_ver
-        self.api         = requests.Session()
-        self.api.headers = {
-            'authorization': '',
-            'accept': 'application/json',
-            'content-type': 'application/json',
-        }
-
-    def upload(self, file_path, url, session, content_type='text/csv'):
-        with io.open(os.path.abspath(file_path), 'rb') as f:
-            m = MultipartEncoder(fields={
-                'file': (os.path.basename(file_path), f, content_type)})
-            return session.post(url, 
-                                data=m,
-                                timeout=self.timeout,
-                                headers={'Content-Type': m.content_type})
-
-    def access(self, username, password):
-        url  = urljoin(self.url_base,'refresh_token/')
-        rsp  = self.api.post(url, 
-                             timeout=self.timeout, 
-                             json={"username": username, "password": password})
-        if rsp.status_code == status.ok:
-            self.tkn_access  = rsp.json()['access_token']
-            self.tkn_refresh = rsp.json()['refresh_token']
-            self.api.headers['authorization'] = 'Bearer {}'.format(self.tkn_access)
-            return True        
-        else:
-            # Log error & raise execption 
-            return rsp.text
-
-    def refresh(self):
-        self.api.headers['authorization'] = 'Bearer {}'.format(self.tkn_refresh)
-        url = urljoin(self.url_base,'access_token/')
-        rsp = self.api.post(url, self.timeout)
-
-        if rsp.status_code == status.ok:
-            print(rsp.json())
-            self.tkn_access  = rsp.json()['access_token']
-            self.api.headers['authorization'] = 'Bearer {}'.format(self.tkn_access)
-            return True
-        else:
-            # Log error & raise execption 
-            return rsp.text
+        self.api        = connector(api_url, username, password)
+        self.models     = API_models(self.api, '{}/models/'.format(api_ver))
+        self.portfolios = API_portfolios(self.api, '{}/portfolios/'.format(api_ver)) 
+        self.analyses   = API_analyses(self.api,'{}/analyses/'.format(api_ver))
 
 
 
 
-    #@oasis_log
-    def health_check(self, retry_delay=5, retrys=1):
-        """
-        Checks the health of the server.
-
-        :param poll_attempts: The maximum number of checks to make
-        :type poll_attempts: int
-
-        :param retry_delay: The amount of time to wait between retry attempts
-        :type retry_delay: int
-
-        :return: True If the server is healthy, otherwise False
-        """
-        try: 
-            url = urljoin(self.url_base, 'helthcheck/')
-            rsp = self.api.get(url, timeout=1)
-            rsp.raise_for_status()
-            return True 
-        except Exception as e:
-            if retrys > 0:     
-                print('Failed - Retry')
-                time.sleep(retry_delay)
-                self.health_check(retry_delay=retry_delay, retrys=retrys-1)
-            
-            self._logger.error('Healthcheck failed: {}.'.format(str(e)))
-        return False
-
-
+    '''
     def create_model(self, supplier_id, model_id, version_id, retrys=1):
         try: 
             data = {"supplier_id": supplier_id, "model_id": model_id, "version_id":version_id} 
@@ -171,7 +253,7 @@ class OasisAPIClient(object):
  #       #req failed
  #       return False
 
-        
+'''        
 
 
 

@@ -15,13 +15,11 @@ import time
 import logging
 
 class connector(object):
-    def __init__(self, api_url, api_ver, username, password, timeout=1, logger=None):
-        self._logger = logger or logging.getLogger()
+    def __init__(self, api_url, username, password, timeout=2):
         self.tkn_access  = None
         self.tkn_refresh = None
 
         self.url_base    = api_url
-        self.url_vers    = api_ver
         self.timeout     = timeout
         self.api         = self._session_retry()
         self.api.headers = {
@@ -123,53 +121,38 @@ class connector(object):
         try: 
             if not url_base:
                 url_base = self.url_base
-            r = self.api.get(urljoin(url_endpoint, url_base), timeout=self.timeout, **kwargs)
-        except Exception as e:
-           if r.status_code == status.UNAUTHORIZED:
+            return self.api.get(urljoin(url_base, url_endpoint), timeout=self.timeout, **kwargs)
+        except HTTPError as e:
                self._refresh_token()
-        r.raise_for_status()
-        return r
 
     def post(self, url_endpoint, url_base=None, **kwargs):
         try: 
             if not url_base:
                 url_base = self.url_base
-            r = self.api.post(urljoin(url_endpoint, url_base), timeout=self.timeout, **kwargs)
-        except Exception as e:
-           if r.status_code == status.UNAUTHORIZED:
+            return self.api.post(urljoin(url_base, url_endpoint), timeout=self.timeout, **kwargs)
+        except HTTPError as e:
                self._refresh_token()
-        r.raise_for_status()
-        return r
 
     def delete(self, url_endpoint, url_base=None, **kwargs):
         try: 
             if not url_base:
                 url_base = self.url_base
-            r = self.api.delete(urljoin(url_endpoint, url_base), timeout=self.timeout, **kwargs)
-        except Exception as e:
-           if r.status_code == status.UNAUTHORIZED:
+            return self.api.delete(urljoin(url_base, url_endpoint), timeout=self.timeout, **kwargs)
+        except HTTPError as e:
                self._refresh_token()
-        r.raise_for_status()
-        return r
 
     def put(self, url_endpoint, url_base=None, **kwargs):
         try: 
             if not url_base:
                 url_base = self.url_base
-            r = self.api.put(urljoin(url_endpoint, url_base), timeout=self.timeout, **kwargs)
-        except Exception as e:
-           if r.status_code == status.UNAUTHORIZED:
+            return self.api.put(urljoin(url_base, url_endpoint), timeout=self.timeout, **kwargs)
+        except HTTPError as e:
                self._refresh_token()
-        r.raise_for_status()
-        return r
 
     def patch(self, url_endpoint, url_base=None, **kwargs):
         try: 
             if not url_base:
                 url_base = self.url_base
-            r = self.api.patch(urljoin(url_endpoint, url_base), timeout=self.timeout, **kwargs)
-        except Exception as e:
-           if r.status_code == status.UNAUTHORIZED:
+            return self.api.patch(urljoin(url_base, url_endpoint), timeout=self.timeout, **kwargs)
+        except HTTPError as e:
                self._refresh_token()
-        r.raise_for_status()
-        return r
