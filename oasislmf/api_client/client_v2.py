@@ -6,8 +6,9 @@ import logging
 from connector_api import connector
 
 
+# --- API Endpoint mapping to functions ------------------------------------- #
+
 class ApiEndpoint(object):
-    
     def __init__(self, connector, url_endpoint):
         self.connector = connector
         self.url_endpoint = url_endpoint
@@ -49,8 +50,7 @@ class FileEndpoint(object):
         self.url_resource = url_resource
 
     def _build_url(self, ID):
-        return '{}{}{}/{}'.format(
-            self.connector.url_base,
+        return '{}{}/{}'.format(
             self.url_endpoint,
             ID,
             self.url_resource
@@ -64,8 +64,11 @@ class FileEndpoint(object):
         '''
         return self.connector.upload(file_path, self._build_url(ID))
 
-    def download(self):
-        pass
+    def download(self, ID, file_path):
+        print(self._build_url(ID))
+        return self.connector.download(file_path, self._build_url(ID))
+
+
     def delete(self):
         pass
 
@@ -94,6 +97,11 @@ class API_models(ApiEndpoint):
             search_string += '?{}={}'.format(key, metadata[key])
         return self.connector.get('{}{}'.format(self.url_endpoint, search_string))
 
+    def create(self, supplier_id, model_id, version_id):
+        data = {"supplier_id": supplier_id,
+                "model_id": model_id,
+                "version_id": version_id}
+        return self.connector.post(self.url_endpoint, json=data)
 
 class API_portfolios(ApiEndpoint):
 
@@ -116,10 +124,9 @@ class API_portfolios(ApiEndpoint):
             
             Override ApiEndpoint create method
         """
-        data = {
-          "name": name,
-        }  
-        pass
+        data = {"name": name}  
+        return self.connector.post(self.url_endpoint, json=data)
+
     def update(self, ID, accounts_file=None, location_file=None, ri_info_file=None, ri_source_file=None):
         """ Update Exisiting portfolio
         """
@@ -149,149 +156,48 @@ class API_analyses(ApiEndpoint):
    
 
     def create(self, name, portfolio_id, model_id):
-        data = {
-          "name": name,
-          "portfolio": portfolio_id,
-          "model": model_id
-        }
-        
+        data = {"name": name,
+                "portfolio": portfolio_id,
+                "model": model_id } 
+        return self.connector.post(self.url_endpoint, json=data)
 
+    def status(self, ID):
+        return self.get(ID).json()['status']
 
     def generate(self, ID):
-        pass
+        return self.connector.post('{}{}/generate_inputs/'.format(self.url_endpoint, ID), json={})
+
+    def generate_cancel(self, ID):
+        return self.connector.post('{}{}/cancel_generate_inputs/'.format(self.url_endpoint, ID), json={})
 
     def run(self, ID):
-        pass
+        return self.connector.post('{}{}/run/'.format(self.url_endpoint, ID), json={})
+
+    def run_cancel(self, ID):
+        return self.connector.post('{}{}/cancel/'.format(self.url_endpoint, ID), json={})
+
+
+
+
+
+
+# --- API Main Client ------------------------------------------------------- #
 
 class OasisAPIClient(object):
-    def __init__(self, api_url, api_ver, timeout=5, logger=None):
+    def __init__(self, api_url, api_ver, timeout=2, logger=None):
         self._logger = logger or logging.getLogger()
 
-        self.api        = connector(api_url, username, password)
+        self.api        = connector(api_url, username, password, timeout)
         self.models     = API_models(self.api, '{}/models/'.format(api_ver))
         self.portfolios = API_portfolios(self.api, '{}/portfolios/'.format(api_ver)) 
         self.analyses   = API_analyses(self.api,'{}/analyses/'.format(api_ver))
 
 
-
-
-    '''
-    def create_model(self, supplier_id, model_id, version_id, retrys=1):
-        try: 
-            data = {"supplier_id": supplier_id, "model_id": model_id, "version_id":version_id} 
-            url  = urljoin(self.url_base, self.url_vers, 'models/')
-            rsp  = self.api.post(url, json=data)
-            rsp.raise_for_status()
-            # Req complete  
-            return rsp.json()
-        except (HTTPError, Timeout, ConnectionError) as e:
-            if retrys > 0:
-                if rsp.status_code == status.UNAUTHORIZED:
-                    self.refresh()
-                    self.add_model(supplier, model, version, retrys=retrys-1)
-        # req failed
-        return rsp
-
-
-    def create_portfolio(self, portfolio_name, retrys=1):
-        try: 
-            data = {"name": portfolio_name}
-            url  = urljoin(self.url_base, self.url_vers, 'portfolios/')
-            rsp  = self.api.post(url, json=data)
-            rsp.raise_for_status()
-            # Req complete  
-            return rsp.json()
-        except (HTTPError, Timeout, ConnectionError) as e:
-            if retrys > 0:
-                # Refresh token and resend request
-                if rsp.status_code == status.UNAUTHORIZED:
-                    self.refresh()
-                    self.create_analyses()
-
-                # Bad Request or model alreadys exsists
-                if rsp.status_code == status.BAD:
-                    return rsp
-        # req failed
-        return rsp
-   
-
-    def create_analyses(self, analyses_name, model_id, portfolio_id, retrys=1):
-        try: 
-            data = {"name": analyses_name,
-                    "portfolio": model_id,
-                    "model": portfolio_id}
-            url  = urljoin(self.url_base, self.url_vers, 'analyses/')
-            rsp  = self.api.post(url, json=data)
-            rsp.raise_for_status()
-            # Req complete
-            return rsp.json()
-        except (HTTPError, Timeout, ConnectionError) as e:
-            if retrys > 0:
-                # Refresh token and resend request
-                if rsp.status_code == status.UNAUTHORIZED:
-                    self.refresh()
-                    self.create_analyses(analyses_name, model_id, portfolio_id, retrys=retrys-1)
-        #req failed
-        return rsp
-
-
- #   def upload_exposure(self, portfolio_dict, fp_location, fp_account, fp_ri_info=None, fp_ri_scope=None):
- #       try:
- #           
-
- #       try: 
- #           url  = 
- #           rsp  = 
- #           rsp.raise_for_status()
- #           return rsp
- #       except (HTTPError, Timeout, ConnectionError) as e:
- #           if retrys > 0:
- #               if rsp.status_code == status.UNAUTHORIZED:
- #                   self.refresh()
- #               self.create_analyses()
-
- #       #req failed
- #       return False
-
-'''        
-
-
-
-## -------------------------------------------------------------------------- #
-'''
-Methods to override
-
-class OasisAPIClient(object):
-
-    def __init__(self, oasis_api_url, logger=None):
-        pass
-    ## Duplicate old func for compatibility
     def upload_inputs_from_directory(
         self, directory, bin_directory=None, do_il=False, do_ri=False, do_build=False, do_clean=False):
         pass
-    def run_analysis(self, analysis_settings_json, input_location):
-        pass
-    def run_analysis(self, analysis_settings_json, input_location):
-        pass
-    def get_analysis_status(self, analysis_status_location):
-        pass
+     
     def run_analysis_and_poll(self, analysis_settings_json, input_location, outputs_directory, analysis_poll_interval=5):
         pass
-    def delete_resource(self, path):
-        pass
-    def delete_exposure(self, input_location):
-        pass
-    def delete_outputs(self, outputs_location):
-        pass
-    def download_resource(self, path, localfile):
-        pass
-    def download_exposure(self, exposure_location, localfile):
-        pass
-    def download_outputs(self, outputs_location, localfile):
-        pass
 
-## Status codes list
-https://github.com/requests/requests/blob/master/requests/status_codes.py#L22-L100
-
-'''
-
+## -------------------------------------------------------------------------- #
