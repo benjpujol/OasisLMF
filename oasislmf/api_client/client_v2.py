@@ -41,7 +41,6 @@ class ApiEndpoint(object):
             return self.connector.get(self.url_endpoint)
     def delete(self, ID):
         return self.connector.delete('{}{}/'.format(self.url_endpoint, ID))
-        
 
 class FileEndpoint(object):
     def __init__(self, connector, url_endpoint, url_resource):
@@ -65,12 +64,10 @@ class FileEndpoint(object):
         return self.connector.upload(file_path, self._build_url(ID))
 
     def download(self, ID, file_path):
-        print(self._build_url(ID))
         return self.connector.download(file_path, self._build_url(ID))
 
-
-    def delete(self):
-        pass
+    def delete(self, ID):
+        return self.connector.delete(self._build_url(ID))
 
 
 class API_models(ApiEndpoint):
@@ -103,6 +100,12 @@ class API_models(ApiEndpoint):
                 "version_id": version_id}
         return self.connector.post(self.url_endpoint, json=data)
 
+    def update(self, ID, supplier_id, model_id, version_id):
+        data = {"supplier_id": supplier_id,
+                "model_id": model_id,
+                "version_id": version_id}
+        return self.connector.put('{}{}/'.format(self.url_endpoint, ID), json=data)
+
 class API_portfolios(ApiEndpoint):
 
     def __init__(self, connector, url_endpoint):
@@ -120,22 +123,20 @@ class API_portfolios(ApiEndpoint):
 
 
     def create(self, name):
-        """ Create New portfolio
-            
-            Override ApiEndpoint create method
-        """
         data = {"name": name}  
         return self.connector.post(self.url_endpoint, json=data)
 
-    def update(self, ID, accounts_file=None, location_file=None, ri_info_file=None, ri_source_file=None):
-        """ Update Exisiting portfolio
-        """
-        pass
+    def update(self, name):
+        data = {"name": name}  
+        return self.connector.put('{}{}/'.format(self.url_endpoint, ID), json=data)
 
-    def create_analyses(self, ID, model_id):
+    def create_analyses(self, ID, name, model_id):
         """ Create new analyses from Exisiting portfolio
         """
-        pass
+        data = {"name": name,
+                "model": model_id}
+        return self.connector.post('{}{}/create_analysis/'.format(self.url_endpoint, ID), json=data)
+                
 
 class API_analyses(ApiEndpoint):
 
@@ -160,6 +161,12 @@ class API_analyses(ApiEndpoint):
                 "portfolio": portfolio_id,
                 "model": model_id } 
         return self.connector.post(self.url_endpoint, json=data)
+
+    def update(self, name, portfolio_id, model_id):
+        data = {"name": name,
+                "portfolio": portfolio_id,
+                "model": model_id } 
+        return self.connector.put('{}{}/'.format(self.url_endpoint, ID), json=data)
 
     def status(self, ID):
         return self.get(ID).json()['status']
