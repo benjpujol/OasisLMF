@@ -92,6 +92,20 @@ class FileEndpoint(object):
            # raise OasisException(exception_message)
         return r
 
+    def get(self, ID):
+        ## fetch file into memory
+        return self.session.get(self._build_url(ID))
+
+    def post(self, ID, data_object, content_type='application/json'):
+        ## Update data as object - 
+        # https://toolbelt.readthedocs.io/en/latest/uploading-data.html
+        m = MultipartEncoder(fields={'file': ('data', data_object, content_type)})
+        return self.session.post(self._build_url(ID), 
+                                 data=m,
+                                 headers={'Content-Type': m.content_type})
+    
+
+
     def delete(self, ID):
         return self.session.delete(self._build_url(ID))
 
@@ -133,6 +147,7 @@ class API_models(ApiEndpoint):
                 "version_id": version_id}
         return self.session.put('{}{}/'.format(self.url_endpoint, ID), json=data)
 
+
 class API_portfolios(ApiEndpoint):
 
     def __init__(self, session, url_endpoint):
@@ -147,7 +162,6 @@ class API_portfolios(ApiEndpoint):
         for key in metadata:
             search_string += '?{}={}'.format(key, metadata[key])
         return self.session.get('{}{}'.format(self.url_endpoint, search_string))
-
 
     def create(self, name):
         data = {"name": name}  
@@ -181,7 +195,6 @@ class API_analyses(ApiEndpoint):
         for key in metadata:
             search_string += '?{}={}'.format(key, metadata[key])
         return self.session.get('{}{}'.format(self.url_endpoint, search_string))
-   
 
     def create(self, name, portfolio_id, model_id):
         data = {"name": name,
@@ -217,7 +230,7 @@ class API_analyses(ApiEndpoint):
 
 # --- API Main Client ------------------------------------------------------- #
 
-class OasisAPIClient(object):
+class APIClient(object):
     def __init__(self, api_url, api_ver, timeout=2, logger=None):
         self._logger = logger or logging.getLogger()
 
@@ -225,14 +238,9 @@ class OasisAPIClient(object):
         self.models     = API_models(self.api, '{}{}/models/'.format(self.api.url_base, api_ver))
         self.portfolios = API_portfolios(self.api, '{}{}/portfolios/'.format(self.api.url_base, api_ver)) 
         self.analyses   = API_analyses(self.api,'{}{}/analyses/'.format(self.api.url_base, api_ver))
-
-
-    #def upload_inputs_from_directory(
-    #    self, directory, bin_directory=None, do_il=False, do_ri=False, do_build=False, do_clean=False):
-    #    pass
     
 
-    def upload_inputs(self, portfolio_name=None, portfolio_id=None, 
+    def upload_inputs(self, model_id, portfolio_name=None, portfolio_id=None, 
                       location_fp=None, accounts_fp=None, ri_info_fp=None, ri_scope_fp=None):
 
         if not portfolio_name:
@@ -242,32 +250,147 @@ class OasisAPIClient(object):
             r = self.portfolios.get(portfolio_id)
             if r.status_code == 200:
                 print('Updating exisiting portfolio')
-                portfolio_id = self.portfolios.update(portfolio_id, portfolio_name)
+                portfolio = self.portfolios.update(portfolio_id, portfolio_name).json()
             else:
-                portfolio_id = self.portfolios.create(portfolio_name).json()['id']
+                print('Creating portfolio')
+                portfolio = self.portfolios.create(portfolio_name).json()
 
         if location_fp:
-            self.portfolios.location_file.upload(portfolio_id, location_fp)
+            self.portfolios.location_file.upload(portfolio['id'], location_fp)
         if accounts_fp:
-            self.portfolios.accounts_file.upload(portfolio_id, accounts_fp)
+            self.portfolios.accounts_file.upload(portfolio['id'], accounts_fp)
         if ri_info_fp:
-            self.portfolios.reinsurance_info_file.upload(portfolio_id, ri_info_fp)
+            self.portfolios.reinsurance_info_file.upload(portfolio['id'], ri_info_fp)
         if ri_scope_fp:
-            self.portfolios.reinsurance_source_file.upload(portfolio_id, ri_scope_fp)
+            self.portfolios.reinsurance_source_file.upload(portfolio['id'], ri_scope_fp)
+        
+        return portfolio
 
 
-        # search_model = dict()
-        # search_model[''] = settings['model_version_id']
-        # search_model[''] = settings['OasisLMF']
-        # search_model[''] = settings['model_version_id'] <-- Version_Number would also be useful 
+    def create_analysis(self, portfolio_id, model_id, analysis_name=None):
+        if not analysis_name:
+            analysis_name = 'API_someTimeStampHere'
 
-        # create Model or featch ID
+        analysis = self.analyses.create(analysis_name ,portfolio_id, model_id).json()
+        return analysis
 
-        # Create Portfolio
+    # BLOCKING CALL
+    def run_generate(self, analysis_id, poll_interval=5):
+        """ 
+        Generates the inputs for the analysis based on the portfolio.
+        The analysis must have one of the following statuses, `NEW`, `INPUTS_GENERATION_ERROR`,
+        `INPUTS_GENERATION_CANCELED`, `READY`, `RUN_COMPLETED`, `RUN_CANCELLED` or                                                         
+        `RUN_ERROR`.
+        """
 
+        # check in valid generate state
+        #   * portfolio has required files 
+        #   * state is okey
+        #   * analysis_id exisits
+
+        #if r.status_code == 404:
+        #    print('Analysis Not found - error')
+        #    # raise execption
+        
+        r = self.analyses.generate(analysis_id)
+        analysis = r.json()
+        
+        while True:
+            if analysis['status'] in ['READY']:
+                print('Inputs generated')
+                return True
+
+            elif analysis['status'] in ['INPUTS_GENERATION_CANCELED']:
+                print('Input Generation Cancelled')
+                return False
+
+            elif analysis['status'] in  ['INPUTS_GENERATION_ERROR']:
+                print('Input Generation failed')
+                error_trace = analyses.input_generation_traceback_file.get(analysis_id).text
+                return False
+
+            elif analysis['status'] in ['INPUTS_GENERATION_STARTED']:
+                time.sleep(poll_interval)
+                analysis = self.analyses.get(analysis_id)
+                continue
+
+            else:
+                pass
+                ## Error -- Raise execption Unknown Analysis  State
+
+
+    # BLOCKING CALL
+    def run_analysis(self, analysis_id, analysis_settings):
+        """
+        Runs all the analysis. The analysis must have one of the following
+        statuses, `NEW`, `RUN_COMPLETED`, `RUN_CANCELLED` or
+        `RUN_ERROR`
+        """
+
+        # check in valid run state 
+        # * Inputs have been generated
+        # * in valid run state
+        # * analysis id exisits
+
+        ## upload analysis_settings_json
+         
+        if isinstance(analysis_settings, dict):
+            pass
+            # POST data
+
+        elif isinstance(analysis_settings, (str, unicode)):
+            self.analyses.settings_file.upload(analysis_id, analysis_settings)
+            # upload as file
+        else:
+            # rasie execption
+            pass
+
+        r = self.analyses.run(analysis_id)
+        analysis = r.json()
+        
+        while True:
+            if analysis['status'] in ['RUN_COMPLETED']:
+                print('Run completed ')
+                return True
+
+            elif analysis['status'] in ['RUN_CANCELLED']:
+                print('Model execution Cancelled')
+                return False
+
+            elif analysis['status'] in  ['RUN_ERROR']:
+                print('Model execution failed')
+                error_trace = analyses.analyses.run_traceback_file.get(analysis_id).text
+                return False
+
+            elif analysis['status'] in ['RUN_STARTED']:
+                time.sleep(poll_interval)
+                analysis = self.analyses.get(analysis_id)
+                continue
+
+            else:
+                pass
+                ## Error -- Raise execption Unknown Analysis  State
+
+    def download_output(self, download_path):
+        pass
+        #self.
+
+
+
+    def cancel_generate(self, analysis_id):
+        """
+        Cancels a currently inputs generation. The analysis status must be `GENERATING_INPUTS`
+        """
+        pass
+
+    def cancel_analysis(self, analysis_id):
+        """
+        Cancels a currently running analysis. The analysis must have one of the following
+        statuses, `PENDING` or `STARTED`
+        """
+        pass
         
 
 
-        pass
 
 ## -------------------------------------------------------------------------- #
