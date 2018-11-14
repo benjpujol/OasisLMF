@@ -15,7 +15,7 @@ import logging
 
 
 class SessionManager(Session):
-    def __init__(self, api_url, username, password, timeout=1, retries=2, retry_delay=1, **kwargs):
+    def __init__(self, api_url, username, password, timeout=1, retries=3, retry_delay=1, **kwargs):
         super(SessionManager, self).__init__(**kwargs)
         self.tkn_access  = None
         self.tkn_refresh = None
