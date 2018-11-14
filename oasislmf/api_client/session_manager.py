@@ -20,7 +20,7 @@ class SessionManager(Session):
         self.tkn_access  = None
         self.tkn_refresh = None
 
-        self.url_base    = api_url
+        self.url_base    = urljoin(api_url, '')
         self.timeout     = timeout
         self.retry_max   = retries 
         self.retry_delay = retry_delay
