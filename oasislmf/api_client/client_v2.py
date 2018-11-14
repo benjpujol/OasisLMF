@@ -4,8 +4,11 @@ import io
 import os
 import logging
 from requests_toolbelt import MultipartEncoder
-#from session_manager import connector
 from session_manager import SessionManager
+
+
+#from ..utils.log import oasis_log
+#from ..utils.exceptions import OasisException
 
 # --- API Endpoint mapping to functions ------------------------------------- #
 
@@ -224,11 +227,47 @@ class OasisAPIClient(object):
         self.analyses   = API_analyses(self.api,'{}{}/analyses/'.format(self.api.url_base, api_ver))
 
 
-    def upload_inputs_from_directory(
-        self, directory, bin_directory=None, do_il=False, do_ri=False, do_build=False, do_clean=False):
-        pass
-     
-    def run_analysis_and_poll(self, analysis_settings_json, input_location, outputs_directory, analysis_poll_interval=5):
+    #def upload_inputs_from_directory(
+    #    self, directory, bin_directory=None, do_il=False, do_ri=False, do_build=False, do_clean=False):
+    #    pass
+    
+
+    def upload_inputs(self, portfolio_name=None, portfolio_id=None, 
+                      location_fp=None, accounts_fp=None, ri_info_fp=None, ri_scope_fp=None):
+
+        if not portfolio_name:
+            portfolio_name = 'API_someTimeStampHere'
+
+        if portfolio_id:
+            r = self.portfolios.get(portfolio_id)
+            if r.status_code == 200:
+                print('Updating exisiting portfolio')
+                portfolio_id = self.portfolios.update(portfolio_id, portfolio_name)
+            else:
+                portfolio_id = self.portfolios.create(portfolio_name).json()['id']
+
+        if location_fp:
+            self.portfolios.location_file.upload(portfolio_id, location_fp)
+        if accounts_fp:
+            self.portfolios.accounts_file.upload(portfolio_id, accounts_fp)
+        if ri_info_fp:
+            self.portfolios.reinsurance_info_file.upload(portfolio_id, ri_info_fp)
+        if ri_scope_fp:
+            self.portfolios.reinsurance_source_file.upload(portfolio_id, ri_scope_fp)
+
+
+        # search_model = dict()
+        # search_model[''] = settings['model_version_id']
+        # search_model[''] = settings['OasisLMF']
+        # search_model[''] = settings['model_version_id'] <-- Version_Number would also be useful 
+
+        # create Model or featch ID
+
+        # Create Portfolio
+
+        
+
+
         pass
 
 ## -------------------------------------------------------------------------- #
