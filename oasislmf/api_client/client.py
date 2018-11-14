@@ -1,355 +1,273 @@
-"""
-    Provides a simple class to build Oasis API clients.
-"""
-import logging
+#!/bin/env python
 
-from requests import RequestException
-from six.moves import urllib
-
-from ..model_execution.files import TAR_FILE
-from ..model_execution.bin import create_binary_tar_file, create_binary_files, check_inputs_directory, \
-    cleanup_bin_directory, check_conversion_tools
-from ..utils.exceptions import OasisException
-
-__all__ = [
-    'OasisAPIClient'
-]
-
-
-# Python 2 standard imports
-import os
 import io
-import time
-
-# Python 3rd party imports
-import requests
-
-from requests_toolbelt.multipart.encoder import MultipartEncoder
-
-# Oasis imports
-from ..utils.log import oasis_log
-from ..utils.status import STATUS_PENDING, STATUS_SUCCESS, STATUS_FAILURE
+import os
+import logging
+from requests_toolbelt import MultipartEncoder
+from session_manager import SessionManager
 
 
-class OasisAPIClient(object):
-    """
-    Class for interacting with the oasis api server
+#from ..utils.log import oasis_log
+#from ..utils.exceptions import OasisException
 
-    :param oasis_api_url: The root URL for the API. This should
-        include the scheme and port (eg. http://localhost:8001)
-    :type oasis_api_url: str
+# --- API Endpoint mapping to functions ------------------------------------- #
 
-    :param logger: The logger to use for message logging. If None
-        the root logger is used.
-    :type logger: Logger
-    """
-    #: The chunk size to use when streaming data from the server
-    DOWNLOAD_CHUCK_SIZE_IN_BYTES = 1024
+class ApiEndpoint(object):
+    def __init__(self, session, url_endpoint):
+        self.session = session
+        self.url_endpoint = url_endpoint
 
-    def __init__(self, oasis_api_url, logger=None):
-        """
-        Construct the client.
-        """
+    '''
+        data: dict of key paris to create
 
-        self._oasis_api_url = oasis_api_url
-        self._logger = logger or logging.getLogger()
+        example:
+            new_model = {"supplier_id": 'FooBAR', "model_id": 'UKBF', "version_id":'1'}
+            r = models.create(new_model)
 
-    def build_uri(self, path):
-        """
-        Builds the uri for the requested resource
+            r.json() 
+            {
+                'id': 8,
+                'supplier_id': 'FooBAR',
+                'model_id': 'UKBF',
+                'version_id': '1',
+                'created': '18-11-13T15:48:07.285203+0000',
+                'modified': '18-11-13T15:48:07.285616+0000'
+            }
 
-        :param path: The path to the resource
-        :type path: str
 
-        :return: The fully qualified uri for the resource
-        """
-        return urllib.parse.urljoin(self._oasis_api_url, path)
+    '''
+    def create(self, data):
+        return self.session.post(self.url_endpoint, json=data)
+    def get(self, ID=None):
+        if ID:
+            return self.session.get('{}{}/'.format(self.url_endpoint, ID))
+        else:    
+            return self.session.get(self.url_endpoint)
+    def delete(self, ID):
+        return self.session.delete('{}{}/'.format(self.url_endpoint, ID))
 
-    @oasis_log
-    def upload_inputs_from_directory(
-        self, directory, bin_directory=None, do_il=False, do_ri=False, do_build=False, do_clean=False):
-        """
-        Upload the CSV files from a specified directory.
+class FileEndpoint(object):
+    def __init__(self, session, url_endpoint, url_resource):
+        self.session = session
+        self.url_endpoint = url_endpoint
+        self.url_resource = url_resource
 
-        :param directory: the directory containing the CSVs.
-        :type directory: str
-
-        :param bin_directory: the directory to build the binary files in, if not set ``directory`` is used
-        :type bin_directory: str
-
-        :param do_il: if True, require files for insured loss (IL) calculation.
-        :type do_il: bool
-
-        :param do_ri: if True, require sub-folders for reinsurance calculation.
-        :type do_ri: bool
-
-        :param do_build: if True, the input tar will be built
-        :type do_build: bool
-
-        :param do_clean: if True, remove the tar and bin files
-        :type do_clean: bool
-
-        :return: The location of the uploaded inputs.
-        """
-        bin_directory = bin_directory or directory
-
-        try:
-            if do_build:
-                check_inputs_directory(directory, do_il=do_il, do_ri=do_ri)
-                check_conversion_tools(do_il=do_il)
-                create_binary_files(directory, bin_directory, do_il=do_il, do_ri=do_ri)
-                create_binary_tar_file(bin_directory)
-
-            self._logger.debug("Uploading inputs")
-            inputs_tar_to_upload = os.path.join(bin_directory, TAR_FILE)
-
-            with io.open(inputs_tar_to_upload, 'rb') as f:
-                inputs_multipart_data = MultipartEncoder(
-                    fields={
-                        'file': (TAR_FILE, f, 'text/plain')
-                    }
-                )
-
-                response = requests.post(
-                    self.build_uri('/exposure'),
-                    data=inputs_multipart_data,
-                    headers={'Content-Type': inputs_multipart_data.content_type}
-                )
-
-            if not response.ok:
-                self._logger.error(
-                    "POST {} failed: {}, {}".format(response.request.url, str(response.status_code), str(response.json))
-                )
-                raise OasisException("Failed to save exposure.")
-
-            exposure_location = response.json()['exposures'][0]['location']
-            self._logger.debug("Uploaded exposure. Location: " + exposure_location)
-
-            # Return the location of the uploaded inputs
-            return exposure_location
-        finally:
-            # Tidy up
-            if do_clean:
-                cleanup_bin_directory(bin_directory)
-
-    @oasis_log
-    def run_analysis(self, analysis_settings_json, input_location):
-        """
-        Starts an analysis running. Calling code will need to poll for
-        completion or failure, and handle results.
-
-        :param analysis_setting_json: The analysis settings encoded as JSON.
-        :type analysis_setting_json: str
-
-        :param input_location: The location of the inputs resource.
-        :type input_location: str
-
-        :return: The location of analysis status, to poll.
-        """
-        response = requests.post(
-            self.build_uri("/analysis/" + input_location),
-            json=analysis_settings_json,
+    def _build_url(self, ID):
+        return '{}{}/{}'.format(
+            self.url_endpoint,
+            ID,
+            self.url_resource
         )
 
-        if not response.ok:
-            self._logger.error("POST {} failed: {}".format(response.request.url, str(response.status_code)))
-            raise OasisException("Failed to start analysis")
+    def upload(self, ID, file_path, content_type='text/csv'):
+        '''
+            In [14]: r = portfolios.accounts_file.upload(43, '/home/sam/repos/models/OasisPiWind/tests/data/SourceAccPiWind.csv')
+            In [16]: r.text
+            Out[16]: '{"created":"18-11-13T16:55:31.290627+0000","file":"/media/a580c956a8414ece95b278d16aa0aa3c.csv"}'
+        '''
+        abs_fp = os.path.realpath(os.path.expanduser(file_path))
+        with io.open(abs_fp, 'rb') as f:
+            m = MultipartEncoder(fields={'file': (os.path.basename(file_path), f, content_type)})
+            return self.session.post(self._build_url(ID), 
+                                 data=m,
+                                 headers={'Content-Type': m.content_type})
 
-        analysis_status_location = response.json()['location']
-        self._logger.info("Analysis started")
+    def download(self, ID, file_path, chuck_size=1024, overrwrite=False):
+        abs_fp = os.path.realpath(os.path.expanduser(file_path))
+        if os.path.exists(abs_fp) and not overrwrite:
+            error_message = 'Local file alreday exists: {}'.format(abs_fp)
+            #self._logger.error(error_message)
+            #raise OasisException(error_message)
+            raise IOError(error_message)
 
-        return analysis_status_location
-
-    def get_analysis_status(self, analysis_status_location):
-        """
-        Fetches the analysis status for the requested analysis.
-
-        :param analysis_status_location: The location the analysis status.
-            This is the value returned from ``run_analysis``
-        :type analysis_status_location: str
-
-        :raises OasisException: If the analysis fails.
-        :raises OasisException: If the http request is not successful
-
-        :return: A 2 tuple of the status and output location. If the
-            status is pending the output location is empty.
-        """
-        response = requests.get(self.build_uri('/analysis_status/' + analysis_status_location))
-        if response.status_code != 200:
-            raise OasisException("GET analysis status failed: {}".format(response.status_code))
-
-        self._logger.debug("Response: {}".format(response.json()))
-        status = response.json()['status']
-        self._logger.debug("Analysis status: " + status)
-
-        if status == STATUS_FAILURE:
-            error_message = "Analysis failed: {}".format(response.json()['message'])
-            self._logger.error(error_message)
-            raise OasisException(error_message)
-        elif status == STATUS_SUCCESS:
-            return status, response.json()['outputs_location']
+        r = self.session.get(self._build_url(ID), stream=True)
+        if  r.ok:
+            with io.open(abs_fp, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=chuck_size):
+                    f.write(chunk)
         else:
-            return status, ''
+            print('Download failed')
+           # exception_message = 'GET {} failed: {}'.format(response.request.url, response.status_code)
+           # self._logger.error(exception_message)
+           # raise OasisException(exception_message)
+        return r
 
-    @oasis_log
-    def run_analysis_and_poll(self, analysis_settings_json, input_location, outputs_directory, analysis_poll_interval=5):
+    def delete(self, ID):
+        return self.session.delete(self._build_url(ID))
+
+
+
+class API_models(ApiEndpoint):
+    def search(self, metadata):
+        '''
+        metadata: dict of key pairs to search for
+
+        example:
+            m = {'supplier_id': 'OasisIM'}
+            r = models.search(m)
+            r.json()
+
+            [{
+                'id': 6,
+                'supplier_id': 'OasisIM',
+                'model_id': 'PiWind',
+                'version_id': '1',
+                'created': '18-10-17T11:07:33.407742+0000',
+                'modified': '18-10-17T11:07:33.408123+0000'
+            }]
+        '''
+        search_string = ''
+        for key in metadata:
+            search_string += '?{}={}'.format(key, metadata[key])
+        return self.session.get('{}{}'.format(self.url_endpoint, search_string))
+
+    def create(self, supplier_id, model_id, version_id):
+        data = {"supplier_id": supplier_id,
+                "model_id": model_id,
+                "version_id": version_id}
+        return self.session.post(self.url_endpoint, json=data)
+
+    def update(self, ID, supplier_id, model_id, version_id):
+        data = {"supplier_id": supplier_id,
+                "model_id": model_id,
+                "version_id": version_id}
+        return self.session.put('{}{}/'.format(self.url_endpoint, ID), json=data)
+
+class API_portfolios(ApiEndpoint):
+
+    def __init__(self, session, url_endpoint):
+        super(API_portfolios, self).__init__(session, url_endpoint)
+        self.accounts_file = FileEndpoint(self.session, self.url_endpoint, 'accounts_file/')
+        self.location_file = FileEndpoint(self.session, self.url_endpoint, 'location_file/')
+        self.reinsurance_info_file = FileEndpoint(self.session, self.url_endpoint, 'reinsurance_info_file/')
+        self.reinsurance_source_file = FileEndpoint(self.session, self.url_endpoint, 'reinsurance_source_file/')
+
+    def search(self, metadata):
+        search_string = ''
+        for key in metadata:
+            search_string += '?{}={}'.format(key, metadata[key])
+        return self.session.get('{}{}'.format(self.url_endpoint, search_string))
+
+
+    def create(self, name):
+        data = {"name": name}  
+        return self.session.post(self.url_endpoint, json=data)
+
+    def update(self, ID, name):
+        data = {"name": name}  
+        return self.session.put('{}{}/'.format(self.url_endpoint, ID), json=data)
+
+    def create_analyses(self, ID, name, model_id):
+        """ Create new analyses from Exisiting portfolio
         """
-        Run an analysis to completion or failure. resources on the server are
-        cleaned up once the analysis is complete.
+        data = {"name": name,
+                "model": model_id}
+        return self.session.post('{}{}/create_analysis/'.format(self.url_endpoint, ID), json=data)
+                
 
-        :param analysis_setting_json: The analysis settings encoded as JSON.
-        :type analysis_settings_json: str
+class API_analyses(ApiEndpoint):
 
-        :param input_location: The local directory containing the inputs resources.
-        :type input_location: str
+    def __init__(self, session, url_endpoint):
+        super(API_analyses, self).__init__(session, url_endpoint)
+        self.input_errors_file = FileEndpoint(self.session, self.url_endpoint, 'input_errors_file/')
+        self.input_file = FileEndpoint(self.session, self.url_endpoint, 'input_file/')
+        self.input_generation_traceback_file = FileEndpoint(self.session, self.url_endpoint, 'input_generation_traceback_file/')
+        self.output_file = FileEndpoint(self.session, self.url_endpoint, 'output_file/')
+        self.run_traceback_file = FileEndpoint(self.session, self.url_endpoint, 'run_traceback_file/')
+        self.settings_file = FileEndpoint(self.session, self.url_endpoint, 'settings_file/')
 
-        :param outputs_directory: The local directory to save the outputs to.
-        :type outputs_directory: str
+    def search(self, metadata):
+        search_string = ''
+        for key in metadata:
+            search_string += '?{}={}'.format(key, metadata[key])
+        return self.session.get('{}{}'.format(self.url_endpoint, search_string))
+   
 
-        :param analysis_poll_interval: The interval time to wait between status checks
-        :type analysis_poll_interval: int
+    def create(self, name, portfolio_id, model_id):
+        data = {"name": name,
+                "portfolio": portfolio_id,
+                "model": model_id } 
+        return self.session.post(self.url_endpoint, json=data)
 
-        :raises OasisException: If the analysis fails.
-        :raises OasisException: If a http request is not successful
-        """
-        analysis_status_location = self.run_analysis(analysis_settings_json, input_location)
+    def update(self, ID, name, portfolio_id, model_id):
+        data = {"name": name,
+                "portfolio": portfolio_id,
+                "model": model_id } 
+        return self.session.put('{}{}/'.format(self.url_endpoint, ID), json=data)
 
-        self._logger.info("Analysis started")
+    def status(self, ID):
+        return self.get(ID).json()['status']
 
-        status, outputs_location = self.get_analysis_status(analysis_status_location)
-        # Poll until the analysis has completed successfully.
-        # If the analysis fails then an exception will be raised.
-        while status != STATUS_SUCCESS:
-            time.sleep(analysis_poll_interval)
-            status, outputs_location = self.get_analysis_status(analysis_status_location)
+    def generate(self, ID):
+        return self.session.post('{}{}/generate_inputs/'.format(self.url_endpoint, ID), json={})
 
-        self._logger.debug("Analysis completed")
+    def generate_cancel(self, ID):
+        return self.session.post('{}{}/cancel_generate_inputs/'.format(self.url_endpoint, ID), json={})
 
-        self._logger.debug("Downloading outputs")
-        outputs_file = os.path.join(outputs_directory, outputs_location + ".tar.gz")
-        self.download_outputs(outputs_location, outputs_file)
-        self._logger.debug("Downloaded outputs")
+    def run(self, ID):
+        return self.session.post('{}{}/run/'.format(self.url_endpoint, ID), json={})
 
-        # cleanup
-        self.delete_exposure(input_location)
-        self.delete_outputs(outputs_location)
+    def run_cancel(self, ID):
+        return self.session.post('{}{}/cancel/'.format(self.url_endpoint, ID), json={})
 
-    def delete_resource(self, path):
-        """
-        Cleans up a resource on the server
 
-        :param path: The path to the resource to delete
-        :type path: str
-        """
-        response = requests.delete(self.build_uri(path))
-        if response.status_code != 200:
-            self._logger.warning("DELETE {} failed: {}".format(response.request.url, response.status_code))
-        else:
-            self._logger.info("Deleted {}".format(response.request.url))
 
-    @oasis_log
-    def delete_exposure(self, input_location):
-        """
-        Cleans up an exposure on the server
 
-        :param input_location: The input location for the analysis
-        :type input_location: str
-        """
-        self._logger.info("Deleting exposure")
-        self.delete_resource('/exposure/' + input_location)
 
-    @oasis_log
-    def delete_outputs(self, outputs_location):
-        """
-        Cleans up ouptut files on the server
 
-        :param output_location: The output location for the analysis
-        :type output_location: str
-        """
-        self._logger.info("Deleting outputs")
-        self.delete_resource('/outputs/' + outputs_location)
+# --- API Main Client ------------------------------------------------------- #
 
-    def download_resource(self, path, localfile):
-        """
-        Streams a resource from the server to a local file
+class OasisAPIClient(object):
+    def __init__(self, api_url, api_ver, timeout=2, logger=None):
+        self._logger = logger or logging.getLogger()
 
-        :param path: The path of the resource to download
-        :type path: str
+        self.api        = SessionManager(api_url, username, password, timeout)
+        self.models     = API_models(self.api, '{}{}/models/'.format(self.api.url_base, api_ver))
+        self.portfolios = API_portfolios(self.api, '{}{}/portfolios/'.format(self.api.url_base, api_ver)) 
+        self.analyses   = API_analyses(self.api,'{}{}/analyses/'.format(self.api.url_base, api_ver))
 
-        :param localfile: The path to the local file to download the
-            resource to.
-        :type localfile: str
-        """
-        if os.path.exists(localfile):
-            error_message = 'Local file alreday exists: {}'.format(localfile)
-            self._logger.error(error_message)
-            raise OasisException(error_message)
 
-        response = requests.get(self.build_uri(path), stream=True)
-        if not response.ok:
-            exception_message = 'GET {} failed: {}'.format(response.request.url, response.status_code)
-            self._logger.error(exception_message)
-            raise OasisException(exception_message)
+    #def upload_inputs_from_directory(
+    #    self, directory, bin_directory=None, do_il=False, do_ri=False, do_build=False, do_clean=False):
+    #    pass
+    
 
-        with io.open(localfile, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=self.DOWNLOAD_CHUCK_SIZE_IN_BYTES):
-                f.write(chunk)
+    def upload_inputs(self, portfolio_name=None, portfolio_id=None, 
+                      location_fp=None, accounts_fp=None, ri_info_fp=None, ri_scope_fp=None):
 
-    @oasis_log
-    def download_exposure(self, exposure_location, localfile):
-        """
-        Download exposure data to a specified local file.
+        if not portfolio_name:
+            portfolio_name = 'API_someTimeStampHere'
 
-        :param exposure_location: The location of the exposure resource.
-        :type exposure_location: str
+        if portfolio_id:
+            r = self.portfolios.get(portfolio_id)
+            if r.status_code == 200:
+                print('Updating exisiting portfolio')
+                portfolio_id = self.portfolios.update(portfolio_id, portfolio_name)
+            else:
+                portfolio_id = self.portfolios.create(portfolio_name).json()['id']
 
-        :param localfile: The path to the local file to download the
-            exposure to.
-        :type localfile: str
-        """
-        self.download_resource('/exposure/' + exposure_location, localfile)
+        if location_fp:
+            self.portfolios.location_file.upload(portfolio_id, location_fp)
+        if accounts_fp:
+            self.portfolios.accounts_file.upload(portfolio_id, accounts_fp)
+        if ri_info_fp:
+            self.portfolios.reinsurance_info_file.upload(portfolio_id, ri_info_fp)
+        if ri_scope_fp:
+            self.portfolios.reinsurance_source_file.upload(portfolio_id, ri_scope_fp)
 
-    @oasis_log
-    def download_outputs(self, outputs_location, localfile):
-        """
-        Download outputs data to a specified local file.
 
-        :param outputs_location: The location of the ouptuts resource.
-        :type outputs_location: str
+        # search_model = dict()
+        # search_model[''] = settings['model_version_id']
+        # search_model[''] = settings['OasisLMF']
+        # search_model[''] = settings['model_version_id'] <-- Version_Number would also be useful 
 
-        :param localfile: The path to the local file to download the
-            exposure to.
-        :type localfile: str
-        """
-        self.download_resource('/outputs/' + outputs_location, localfile)
+        # create Model or featch ID
 
-    @oasis_log
-    def health_check(self, poll_attempts=1, retry_delay=5):
-        """
-        Checks the health of the server.
+        # Create Portfolio
 
-        :param poll_attempts: The maximum number of checks to make
-        :type poll_attempts: int
+        
 
-        :param retry_delay: The amount of time to wait between retry attempts
-        :type retry_delay: int
 
-        :return: True If the server is healthy, otherwise False
-        """
-        for attempt in range(poll_attempts):
-            try:
-                if attempt > 0:
-                    time.sleep(retry_delay)
+        pass
 
-                resp = requests.get('{}/healthcheck'.format(self._oasis_api_url))
-                if resp.status_code == 200:
-                    return True
-            except RequestException:
-                pass
-        else:
-            self._logger.error(
-                'Could not connect to the api server after {} attempts. Check it is running and try again later.'.format(
-                    poll_attempts,
-                )
-            )
-            return False
+## -------------------------------------------------------------------------- #
