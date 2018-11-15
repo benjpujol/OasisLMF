@@ -40,17 +40,13 @@ class SessionManager(Session):
         url  = urljoin(self.url_base,'refresh_token/')
         r = self.post(url, json={"username": username, "password": password})
 
-        if r.status_code == status.ok:
+        if r.ok:
             self.tkn_access  = r.json()['access_token']
             self.tkn_refresh = r.json()['refresh_token']
             self.headers['authorization'] = 'Bearer {}'.format(self.tkn_access)
-        elif r.status_code == status.UNAUTHORIZED:    
-            print('API Login failed:')
-            print(r.text)
-            #Raise Oasis Error
         else:
-            print('Error fetching access token:')
-            print(r.text)
+            err_msg = 'API Login failed: {}'.format(r.text)
+            print(err_msg)
             #Raise Oasis Error
         return r
 
@@ -62,8 +58,8 @@ class SessionManager(Session):
             self.tkn_access  = r.json()['access_token']
             self.headers['authorization'] = 'Bearer {}'.format(self.tkn_access)
         else:
-            print('API error when refreshing token:')
-            print(r.text)
+            err_msg = 'Token refresh error: {}'.format(r.text)
+            print(err_msg)
             #Raise Oasis Error
         return r
 
@@ -97,9 +93,13 @@ class SessionManager(Session):
         Checks the health of the server.
 
         """
-        url = urljoin(self.url_base, 'helthcheck/')
-        r = super(SessionManager, self).get(url, timeout=self.timeout)
-        return r
+        try:
+            url = urljoin(self.url_base, 'helthcheck/')
+            return super(SessionManager, self).get(url, timeout=self.timeout)
+        except Exception as e:    
+            err_msg = 'Health check failed: Unable to connect to {}'.format(self.url_base)
+            raise ConnectionError(err_msg)
+
 
     def get(self, url, **kwargs):
         counter = 0
